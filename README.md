@@ -34,7 +34,12 @@ The system consists of:
     git clone http://github.com/FatmaMahmoud698/payment-flow
     ```
 
-2.  **Run with Docker Compose:**
+2.  **navigate to the project folder:**
+    ```bash
+    cd payment-flow
+    ```
+
+3.  **Run with Docker Compose:**
     ```bash
     docker-compose up --build -d
     ```
