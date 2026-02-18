@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: payment-postgres
+    environment:
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_pass
+      POSTGRES_DB: payment_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: payment-app
+    environment:
+      NODE_ENV: development
+      PORT: 8085
+      SERVER_URL: http://localhost
+      WEBHOOK_SECRET: your_webhook_secret_key
+      MOCK_GATEWAY_URL: http://payment-mock-gateway:4000
+      EXTERNAL_GATEWAY_URL: http://localhost:4000
+      DB_USERNAME: payment_user
+      DB_PASSWORD: payment_pass
+      DB_NAME: payment_db
+      DB_HOST: postgres
+      DB_PORT: 5432
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npx sequelize-cli db:migrate && npm run start"
+
+  worker:
+    build: .
+    container_name: payment-worker
+    environment:
+      NODE_ENV: development
+      DB_USERNAME: payment_user
+      DB_PASSWORD: payment_pass
+      DB_NAME: payment_db
+      DB_HOST: postgres
+      DB_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run worker
+
+  mock-gateway:
+    build: .
+    container_name: payment-mock-gateway
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      APP_WEBHOOK_URL: http://payment-app:8085/webhooks/mock 
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run mock-gateway
+
+volumes:
+  postgres_data:
