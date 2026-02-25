@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const db = require('../models');
-
+const retryAfter = 30 * 60 * 1000; // 30 minutes
 async function processOutbox() {
   const MAX_ATTEMPTS = 3;
   const BATCH_SIZE = 10;
@@ -20,12 +20,15 @@ async function processOutbox() {
 
     for (const task of pendingTasks) {
       try {
+        ///
         await task.update({status: 'SENT', attempts: task.attempts + 1});
       } catch (err) {
+        ///
+        const newRetryTime = new Date(Date.now() + retryAfter);
         await task.update({
           attempts: task.attempts + 1,
           status: 'FAILED',
-          nextAttemptAt: new Date(Date.now() + 5 * 60 * 1000) 
+          nextAttemptAt: newRetryTime
         });
       }
     }
@@ -34,4 +37,4 @@ async function processOutbox() {
   }
 }
 
-setInterval(processOutbox, 10000);
+setInterval(processOutbox, retryAfter);
